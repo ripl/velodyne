@@ -121,7 +121,7 @@ velodyne_calib_free (velodyne_calib_t * calib) {
 
 velodyne_laser_return_collection_t *
 velodyne_decode_data_packet_old(velodyne_calib_t* calib, const uint8_t *data,
-                            int data_len, int64_t utime) {
+                                int data_len, int64_t utime) {
 
     // Each data packet contains 1206 bytes consisting of
     //   12 x 100 byte packets: id (2 bytes), rotation (2 bytes), and 32 range (2 bytes) and intensity (1 byte) pairs
@@ -147,8 +147,7 @@ velodyne_decode_data_packet_old(velodyne_calib_t* calib, const uint8_t *data,
     if (calib->sensor_type == VELODYNE_SENSOR_TYPE_HDL_32E)
         lrc->utime = utime + VELODYNE_32_LASER_FIRING_TIME_OFFSET(0, 0);
     else if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16) {
-        lrc->utime = utime; // TODO: get timing table implementted for velodyne 16s
-        fprintf (stdout, "Update timing table for VLP 16\n");
+        lrc->utime = utime  + VELODYNE_16_LASER_FIRING_TIME_OFFSET(0, 0);
     }
     else
         lrc->utime = utime; // TODO: get timing table implementted for velodyne 64s
@@ -185,12 +184,12 @@ velodyne_decode_data_packet_old(velodyne_calib_t* calib, const uint8_t *data,
 
         if (fabs(this_delta) > VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS)
             fprintf (stderr, "Velodyne Decode: Firing angle  (%.2f deg) - previous angle (%.2f deg) = %.2f deg > %.2f deg!\n",
-		     ctheta * 180/M_PI, ctheta_prev * 180/M_PI, this_delta * 180/M_PI,
-		     VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS * 180/M_PI, ctheta, ctheta_prev);
+                     ctheta * 180/M_PI, ctheta_prev * 180/M_PI, this_delta * 180/M_PI,
+                     VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS * 180/M_PI, ctheta, ctheta_prev);
 
         ctheta_prev = ctheta;
 
-	if (ctheta >= 2*M_PI) {
+        if (ctheta >= 2*M_PI) {
             fprintf (stdout, "Velodyne Decode: Reported heading wraps around 2 PI, setting to zero.\n");
             ctheta = 0;
         }
@@ -199,7 +198,12 @@ velodyne_decode_data_packet_old(velodyne_calib_t* calib, const uint8_t *data,
         double sin_ctheta, cos_ctheta;
         bot_fasttrig_sincos (ctheta, &sin_ctheta, &cos_ctheta);
 
-        int64_t fire_start_utime = utime + VELODYNE_32_LASER_FIRING_TIME_OFFSET(i_f, 0);
+        
+        int64_t fire_start_utime = utime;
+        if (calib->sensor_type == VELODYNE_SENSOR_TYPE_HDL_32E)
+            fire_start_utime += VELODYNE_32_LASER_FIRING_TIME_OFFSET(i_f, 0);
+        else if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16)
+            fire_start_utime += VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_f, 0);
 
         // loop over each laser in this firing
         for (i_l = 0; i_l<VELODYNE_NUM_LASERS_PER_FIRING ; i_l++) {
@@ -307,7 +311,7 @@ velodyne_decode_data_packet_old(velodyne_calib_t* calib, const uint8_t *data,
                 lr->phi       = params->vcf;
                 lr->intensity = VELODYNE_GET_INTENSITY(data, VELODYNE_DATA_LASER_START(i_f, i_l));
 
-                 int order_id = 0;
+                int order_id = 0;
 
                 if((31-lr->physical)%2 == 1){
                     order_id = 31-lr->physical;
@@ -324,50 +328,50 @@ velodyne_decode_data_packet_old(velodyne_calib_t* calib, const uint8_t *data,
                 lr->xyz[0] = lr->range * cos_theta * cos_phi;
                 lr->xyz[1] = -lr->range * sin_theta * cos_phi;
                 lr->xyz[2] = lr->range * sin_phi;
-	          }
+            }
             else if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16) {
 
-            // according to velodyne the 32E shouldn't need any calibration
-            // beyond the vertical correction, so curently no other corrections
-            // are applied
+                // according to velodyne the 32E shouldn't need any calibration
+                // beyond the vertical correction, so curently no other corrections
+                // are applied
 
-            // TODO: TIMING OFFSET NOT YET IMPLEMENTED
-            //lr->utime = utime + VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_f, i_l);
+                // TODO: TIMING OFFSET NOT YET IMPLEMENTED
+                lr->utime = utime + VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_f, i_l);
 
-            // compensate for intershot yaw change
-            // at 100m this can be up to 1/4 of a meter of correction
-            int64_t usec_since_first = lr->utime - fire_start_utime;
-            double ctheta_yaw_cmp = ctheta + (VELODYNE_SPIN_RATE * usec_since_first);
+                // compensate for intershot yaw change
+                // at 100m this can be up to 1/4 of a meter of correction
+                int64_t usec_since_first = lr->utime - fire_start_utime;
+                double ctheta_yaw_cmp = ctheta + (VELODYNE_SPIN_RATE * usec_since_first);
 
-            lr->physical = laser_offset + i_l;
-            lr->logical  = velodyne_physical_to_logical (calib, lr->physical);
+                lr->physical = laser_offset + i_l;
+                lr->logical  = velodyne_physical_to_logical (calib, lr->physical);
 
-            velodyne_laser_calib_t *params = &calib->lasers[lr->physical];
-            lr->raw_range = VELODYNE_GET_RANGE(data, VELODYNE_DATA_LASER_START(i_f, i_l));
-            lr->range     = lr->raw_range;
-            lr->ctheta    = ctheta;
-            lr->theta     = ctheta_yaw_cmp;
-            lr->phi       = params->vcf;
-            lr->intensity = VELODYNE_GET_INTENSITY(data, VELODYNE_DATA_LASER_START(i_f, i_l));
+                velodyne_laser_calib_t *params = &calib->lasers[lr->physical];
+                lr->raw_range = VELODYNE_GET_RANGE(data, VELODYNE_DATA_LASER_START(i_f, i_l));
+                lr->range     = lr->raw_range;
+                lr->ctheta    = ctheta;
+                lr->theta     = ctheta_yaw_cmp;
+                lr->phi       = params->vcf;
+                lr->intensity = VELODYNE_GET_INTENSITY(data, VELODYNE_DATA_LASER_START(i_f, i_l));
 
-             int order_id = 0;
+                int order_id = 0;
 
-            if((31-lr->physical)%2 == 1){
-                order_id = 31-lr->physical;
+                if((31-lr->physical)%2 == 1){
+                    order_id = 31-lr->physical;
+                }
+                else{
+                    order_id = 31-lr->physical -15;
+                }
+
+                double sin_theta, cos_theta;
+                bot_fasttrig_sincos (lr->theta, &sin_theta, &cos_theta);
+                double sin_phi = calib->va_sin[lr->physical];
+                double cos_phi = calib->va_cos[lr->physical];
+
+                lr->xyz[0] = lr->range * cos_theta * cos_phi;
+                lr->xyz[1] = -lr->range * sin_theta * cos_phi;
+                lr->xyz[2] = lr->range * sin_phi;
             }
-            else{
-                order_id = 31-lr->physical -15;
-            }
-
-            double sin_theta, cos_theta;
-            bot_fasttrig_sincos (lr->theta, &sin_theta, &cos_theta);
-            double sin_phi = calib->va_sin[lr->physical];
-            double cos_phi = calib->va_cos[lr->physical];
-
-            lr->xyz[0] = lr->range * cos_theta * cos_phi;
-            lr->xyz[1] = -lr->range * sin_theta * cos_phi;
-            lr->xyz[2] = lr->range * sin_phi;
-          }
         }
     }
 
@@ -390,6 +394,8 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
         velodyne_calloc_laser_return_collection (VELODYNE_NUM_LASER_RETURNS_PER_PACKET);
 
     // in a packet there are 12 firing blocks each 100 bytes with id, rotation, and 32 laser returns (range and intensity)
+    // for the VLP-16, the 32 returns correspond to 16 returns at two instances in time. the rotation that is
+    // provided corresponds to the first instance
     int i_f = 0;    //firing index = 0..11
     int i_l = 0;    //laser index index = 0..31
 
@@ -402,16 +408,20 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
     // timestamp sync in the driver and passing that utime in
     if (calib->sensor_type == VELODYNE_SENSOR_TYPE_HDL_32E)
         lrc->utime = utime + VELODYNE_32_LASER_FIRING_TIME_OFFSET(0, 0);
+    else if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16)
+        lrc->utime = utime + VELODYNE_16_LASER_FIRING_TIME_OFFSET(0, 0);
     else
         lrc->utime = utime; // TODO: get timing table implementted for velodyne 64s
 
     int laser_offset = 0;
 
+    double ctheta_last;
     // loop over each firing in this packet
     for (i_f = 0; i_f<VELODYNE_NUM_FIRING_PER_PACKET ; i_f++) {
 
         uint16_t start_id = VELODYNE_GET_START_IDENTIFIER(data, VELODYNE_DATA_FIRING_START(i_f));
 
+        // Accounts for fact that HDL_64 separates 64 returns into 2 packets of 32 each
         if (start_id == VELODYNE_UPPER_START_IDENTIFIER)
             //Upper block lasers are numbered 1-32 in the db.xml file
             //but they are 32-63 in the velodyne-uncalib.h file
@@ -422,7 +432,8 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
             fprintf (stderr, "ERROR: Unknown Velodyne start identifier %4x\n", start_id);
 
 
-        // position of velodyne head, constant for all 32 measurements that follow
+        // HDL_32/HDL_64: position of velodyne head, constant for all 32 measurements that follow
+        // VLP_16: position of velodyne head for first 16 measurements
 
         //this is where the heading is obtained
         double ctheta = VELODYNE_GET_ROT_POS(data, VELODYNE_DATA_FIRING_START(i_f));
@@ -430,19 +441,28 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
 
         // Check to see that we aren't missing any data based on the difference between reported headings
         // The magnitude of the difference between sequential angles shouldn't be greater than VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS radians
+        static int have_ctheta_prev = 0;
         static double ctheta_prev = 0;
         static double delta = 0;
 
         double this_delta = bot_mod2pi_ref(0, ctheta - ctheta_prev);
 
+        // Used for VLP_16, which does not report azimuth for second set of 16 returns
+        double ctheta_intermediate;
+        if (have_ctheta_prev)
+            ctheta_intermediate = ctheta + this_delta/2;
+        else
+            ctheta_intermediate = ctheta;
+
         if (fabs(this_delta) > VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS)
             fprintf (stderr, "Velodyne Decode: Firing angle  (%.2f deg) - previous angle (%.2f deg) = %.2f deg > %.2f deg!\n",
-		     ctheta * 180/M_PI, ctheta_prev * 180/M_PI, this_delta * 180/M_PI,
-		     VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS * 180/M_PI, ctheta, ctheta_prev);
+                     ctheta * 180/M_PI, ctheta_prev * 180/M_PI, this_delta * 180/M_PI,
+                     VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS * 180/M_PI, ctheta, ctheta_prev);
 
         ctheta_prev = ctheta;
+        have_ctheta_prev = 1;
 
-	       if (ctheta >= 2*M_PI) {
+        if (ctheta >= 2*M_PI) {
             fprintf (stdout, "Velodyne Decode: Reported heading wraps around 2 PI, setting to zero.\n");
             ctheta = 0;
         }
@@ -455,12 +475,24 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
         // TODO: Implement the same for 16 and 64
         if (calib->sensor_type == VELODYNE_SENSOR_TYPE_HDL_32E)
             fire_start_utime += VELODYNE_32_LASER_FIRING_TIME_OFFSET(i_f, 0);
+        if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16)
+            fire_start_utime += VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_f, 0);
 
         // loop over each laser in this firing
         for (i_l = 0; i_l<VELODYNE_NUM_LASERS_PER_FIRING ; i_l++) {
 
             //logical is bottom up
-            int logical_ind = 31- velodyne_physical_to_logical (calib, laser_offset + i_l);
+            // The VLP 16 returns 2 sets of 16 returns per data block, corresponding to two time instances
+            int logical_ind;
+            if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16) {
+                if (i_l > 15)
+                    laser_offset = -16;
+
+                logical_ind = 31 - (velodyne_physical_to_logical (calib, laser_offset + i_l) - laser_offset);
+            }
+            else
+                logical_ind = 31 - velodyne_physical_to_logical (calib, laser_offset + i_l);
+
             //fill this structure
             velodyne_laser_return_t *lr = &(lrc->laser_returns[i_f*VELODYNE_NUM_LASERS_PER_FIRING + logical_ind]);
 
@@ -565,12 +597,12 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
 
                 /*int order_id = 0;
 
-                if((31-lr->physical)%2 == 1){
-                    order_id = 31-lr->physical;
-                }
-                else{
-                    order_id = 31-lr->physical -15;
-                    }*/
+                  if((31-lr->physical)%2 == 1){
+                  order_id = 31-lr->physical;
+                  }
+                  else{
+                  order_id = 31-lr->physical -15;
+                  }*/
 
                 double sin_theta, cos_theta;
                 bot_fasttrig_sincos (lr->theta, &sin_theta, &cos_theta);
@@ -580,51 +612,49 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
                 lr->xyz[0] = lr->range * cos_theta * cos_phi;
                 lr->xyz[1] = -lr->range * sin_theta * cos_phi;
                 lr->xyz[2] = lr->range * sin_phi;
-	    }
-      else if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16) {
+            }
+            else if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16) {
 
-          // according to velodyne the 32E shouldn't need any calibration
-          // beyond the vertical correction, so curently no other corrections
-          // are applied
+                // according to velodyne the 32E shouldn't need any calibration
+                // beyond the vertical correction, so curently no other corrections
+                // are applied
 
-          // TODO: Time offset not implemented for VLP-16
-          lr->utime = utime;
-          //lr->utime = utime + VELODYNE_32_LASER_FIRING_TIME_OFFSET(i_f, i_l);
+                lr->utime = utime + VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_f, i_l);
 
-          // compensate for intershot yaw change
-          // at 100m this can be up to 1/4 of a meter of correction
-          int64_t usec_since_first = lr->utime - fire_start_utime;
-          double ctheta_yaw_cmp = ctheta + (VELODYNE_SPIN_RATE * usec_since_first);
+                // compensate for intershot yaw change
+                // at 100m this can be up to 1/4 of a meter of correction
+                int64_t usec_since_first = lr->utime - fire_start_utime;
+                double ctheta_yaw_cmp = ctheta + (VELODYNE_SPIN_RATE * usec_since_first);
 
-          lr->physical = laser_offset + i_l;
-          lr->logical  = velodyne_physical_to_logical (calib, lr->physical);
+                lr->physical = laser_offset + i_l;
+                lr->logical  = velodyne_physical_to_logical (calib, lr->physical);
 
-          velodyne_laser_calib_t *params = &calib->lasers[lr->physical];
-          lr->raw_range = VELODYNE_GET_RANGE(data, VELODYNE_DATA_LASER_START(i_f, i_l));
-          lr->range     = lr->raw_range;
-          lr->ctheta    = ctheta;
-          lr->theta     = ctheta_yaw_cmp;
-          lr->phi       = params->vcf;
-          lr->intensity = VELODYNE_GET_INTENSITY(data, VELODYNE_DATA_LASER_START(i_f, i_l));
+                velodyne_laser_calib_t *params = &calib->lasers[lr->physical];
+                lr->raw_range = VELODYNE_GET_RANGE(data, VELODYNE_DATA_LASER_START(i_f, i_l));
+                lr->range     = lr->raw_range;
+                lr->ctheta    = ctheta;
+                lr->theta     = ctheta_yaw_cmp;
+                lr->phi       = params->vcf;
+                lr->intensity = VELODYNE_GET_INTENSITY(data, VELODYNE_DATA_LASER_START(i_f, i_l));
 
-          /*int order_id = 0;
+                /*int order_id = 0;
 
-          if((31-lr->physical)%2 == 1){
-              order_id = 31-lr->physical;
-          }
-          else{
-              order_id = 31-lr->physical -15;
-              }*/
+                  if((31-lr->physical)%2 == 1){
+                  order_id = 31-lr->physical;
+                  }
+                  else{
+                  order_id = 31-lr->physical -15;
+                  }*/
 
-          double sin_theta, cos_theta;
-          bot_fasttrig_sincos (lr->theta, &sin_theta, &cos_theta);
-          double sin_phi = calib->va_sin[lr->physical];
-          double cos_phi = calib->va_cos[lr->physical];
+                double sin_theta, cos_theta;
+                bot_fasttrig_sincos (lr->theta, &sin_theta, &cos_theta);
+                double sin_phi = calib->va_sin[lr->physical];
+                double cos_phi = calib->va_cos[lr->physical];
 
-          lr->xyz[0] = lr->range * cos_theta * cos_phi;
-          lr->xyz[1] = -lr->range * sin_theta * cos_phi;
-          lr->xyz[2] = lr->range * sin_phi;
-}
+                lr->xyz[0] = lr->range * cos_theta * cos_phi;
+                lr->xyz[1] = -lr->range * sin_theta * cos_phi;
+                lr->xyz[2] = lr->range * sin_phi;
+            }
         }
     }
 
@@ -848,15 +878,15 @@ velodyne_collector_push_laser_returns (velodyne_laser_return_collector_t *collec
         // restart collecting again if we are collecting whole scans or if we have re-entered
         if (collector->whole_scan || in_collecting_range (new_returns->laser_returns[0].theta, collector->start_angle, collector->end_angle)) {
 
-	    // reset collector
+            // reset collector
             velodyne_reset_collector (collector);
             if (collector->whole_scan) {
                 collector->start_angle = new_returns->laser_returns[0].theta;
-		collector->prev_angle = collector->start_angle;//new_returns->laser_returns[new_returns->num_lr-1].theta;
-		collector->fov_angle = 0;
-	    }
+                collector->prev_angle = collector->start_angle;//new_returns->laser_returns[new_returns->num_lr-1].theta;
+                collector->fov_angle = 0;
+            }
             collector->utime_first_laser = new_returns->laser_returns[0].utime;
-	    collector_ctheta_prev = new_returns->laser_returns[0].theta;
+            collector_ctheta_prev = new_returns->laser_returns[0].theta;
 
             // do we have a pose for the start of this collection?
             if (collector->state.utime != 0) {
@@ -882,8 +912,8 @@ velodyne_collector_push_laser_returns (velodyne_laser_return_collector_t *collec
         // we have a pose to compensate into and the current pose isn't stale
         if (collector->first_laser_has_pose && abs(new_returns->utime - collector->state.utime) < 2e5) {
 
-          // Compenstaed b/c there is an error that leads to significant heading offsets.
-          //motion_compensate (collector, new_returns);
+            // Compenstaed b/c there is an error that leads to significant heading offsets.
+            //motion_compensate (collector, new_returns);
         }
 
         // push the new returns onto the collection
@@ -892,15 +922,15 @@ velodyne_collector_push_laser_returns (velodyne_laser_return_collector_t *collec
 
             collector->num_lr++;
 
-	    // Check whole scans for dropped readings.
-	    double this_delta = bot_mod2pi_ref(0, new_returns->laser_returns[i].ctheta - collector_ctheta_prev);
-	    if (fabs(this_delta) > VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS)
-		fprintf (stderr, "Velodyne Collector: Firing angle  (%.2f deg) - previous angle (%.2f deg) = %.2f deg > %.2f deg!\n",
-			 new_returns->laser_returns[i].ctheta * 180/M_PI, collector_ctheta_prev * 180/M_PI,
-			 this_delta*180/M_PI, VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS * 180/M_PI);
+            // Check whole scans for dropped readings.
+            double this_delta = bot_mod2pi_ref(0, new_returns->laser_returns[i].ctheta - collector_ctheta_prev);
+            if (fabs(this_delta) > VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS)
+                fprintf (stderr, "Velodyne Collector: Firing angle  (%.2f deg) - previous angle (%.2f deg) = %.2f deg > %.2f deg!\n",
+                         new_returns->laser_returns[i].ctheta * 180/M_PI, collector_ctheta_prev * 180/M_PI,
+                         this_delta*180/M_PI, VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS * 180/M_PI);
 
-	    collector_ctheta_prev =  new_returns->laser_returns[i].ctheta;
-	}
+            collector_ctheta_prev =  new_returns->laser_returns[i].ctheta;
+        }
 
         // check for collection finish
         if (collector->whole_scan) {
@@ -911,11 +941,11 @@ velodyne_collector_push_laser_returns (velodyne_laser_return_collector_t *collec
             double theta_max = new_returns->laser_returns[new_returns->num_lr-1].theta +
                 VELODYNE_RADS_PER_PACKET;
 
-	    double theta_delta = bot_mod2pi_ref (M_PI, theta - collector->prev_angle);
-	    collector->fov_angle += theta_delta;
-	    collector->prev_angle = theta;
+            double theta_delta = bot_mod2pi_ref (M_PI, theta - collector->prev_angle);
+            collector->fov_angle += theta_delta;
+            collector->prev_angle = theta;
 
-	    if (collector->fov_angle > 2*M_PI) {
+            if (collector->fov_angle > 2*M_PI) {
 
                 collector->collecting = 0;
                 collector->collection_ready = 1;
@@ -1122,6 +1152,7 @@ velodyne_read_intrinsic_calibration_file(velodyne_calib_t* calib, char *db_xml_f
     int numLasers;
     cur = cur->xmlChildrenNode;
     while (cur != NULL) {
+        printf ("};\n\n");
         if ((!xmlStrcmp(cur->name, (const xmlChar *)"count"))) {
             key = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
             //printf("Count: %s\n", key);
@@ -1171,5 +1202,4 @@ velodyne_calib_dump (velodyne_calib_t *calib)
         printf ("   { %11.7f, %11.7f, %8.4f, %8.4f, %10.6f }, // laser %2d\n",
                 params->rcf, params->vcf, params->hcf, params->range_offset, params->range_scale_offset, i+1);
     }
-    printf ("};\n\n");
 }

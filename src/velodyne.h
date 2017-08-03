@@ -93,6 +93,7 @@
  * see velodyne 32 manual pg 24
  */
 #define VELODYNE_32_LASER_FIRING_TIME_OFFSET(if, il) (-542.592 + (i_f*46.08) + (i_l*1.152))
+#define VELODYNE_16_LASER_FIRING_TIME_OFFSET(if, il) ((i_f*55.296) + (i_l*2.304))
 
 #ifdef __cplusplus
 extern "C" {

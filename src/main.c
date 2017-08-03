@@ -464,7 +464,8 @@ int main(int argc, char *argv[])
     }
 
 
-    if ((strcmp(self->velodyne_model, VELODYNE_HDL_32E_MODEL_STR)) &&
+    if ((strcmp(self->velodyne_model, VELODYNE_VLP_16_MODEL_STR)) &&
+        (strcmp(self->velodyne_model, VELODYNE_HDL_32E_MODEL_STR)) &&
         (strcmp(self->velodyne_model, VELODYNE_HDL_64E_S1_MODEL_STR)) &&
         (strcmp(self->velodyne_model, VELODYNE_HDL_64E_S1_MODEL_STR))) {
 
