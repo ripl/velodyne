@@ -202,8 +202,11 @@ velodyne_decode_data_packet_old(velodyne_calib_t* calib, const uint8_t *data,
         int64_t fire_start_utime = utime;
         if (calib->sensor_type == VELODYNE_SENSOR_TYPE_HDL_32E)
             fire_start_utime += VELODYNE_32_LASER_FIRING_TIME_OFFSET(i_f, 0);
-        else if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16)
-            fire_start_utime += VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_f, 0);
+        else if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16) {
+            // The time offset is based on sequences, of which there are two per frame
+            int i_s = 2 * i_f;
+            fire_start_utime += VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_s, 0);
+        }
 
         // loop over each laser in this firing
         for (i_l = 0; i_l<VELODYNE_NUM_LASERS_PER_FIRING ; i_l++) {
@@ -336,7 +339,14 @@ velodyne_decode_data_packet_old(velodyne_calib_t* calib, const uint8_t *data,
                 // are applied
 
                 // TODO: TIMING OFFSET NOT YET IMPLEMENTED
-                lr->utime = utime + VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_f, i_l);
+                // The time offset is based on sequences, of which there are two per frame
+                int i_s = 2 * i_f;
+                int i_d = i_l;
+                if (i_l > 15) {
+                    i_s += 1;
+                    i_d -= 16;
+                }
+                lr->utime = utime + VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_s, i_d);
 
                 // compensate for intershot yaw change
                 // at 100m this can be up to 1/4 of a meter of correction
@@ -475,8 +485,11 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
         // TODO: Implement the same for 16 and 64
         if (calib->sensor_type == VELODYNE_SENSOR_TYPE_HDL_32E)
             fire_start_utime += VELODYNE_32_LASER_FIRING_TIME_OFFSET(i_f, 0);
-        if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16)
-            fire_start_utime += VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_f, 0);
+        if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16) {
+            // The time offset is based on sequences, of which there are two per frame
+            int i_s = 2 * i_f;
+            fire_start_utime += VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_s, 0);
+        }
 
         // loop over each laser in this firing
         for (i_l = 0; i_l<VELODYNE_NUM_LASERS_PER_FIRING ; i_l++) {
@@ -577,7 +590,7 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
                 // beyond the vertical correction, so curently no other corrections
                 // are applied
 
-                lr->utime = utime + VELODYNE_32_LASER_FIRING_TIME_OFFSET(i_f, i_l);
+                lr->utime = utime + ((int64_t) VELODYNE_32_LASER_FIRING_TIME_OFFSET(i_f, i_l));
 
                 // compensate for intershot yaw change
                 // at 100m this can be up to 1/4 of a meter of correction
@@ -618,13 +631,28 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
                 // according to velodyne the 32E shouldn't need any calibration
                 // beyond the vertical correction, so curently no other corrections
                 // are applied
+                // The time offset is based on sequences, of which there are two per frame
+                int i_s = 2 * i_f;
+                int i_d = i_l;
+                if (i_l > 15) {
+                    i_s += 1;
+                    i_d -= 16;
+                }
+                
+                int64_t offset_usec = (int64_t) VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_s, i_l);
 
-                lr->utime = utime + VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_f, i_l);
+                lr->utime = utime + offset_usec;
 
                 // compensate for intershot yaw change
                 // at 100m this can be up to 1/4 of a meter of correction
                 int64_t usec_since_first = lr->utime - fire_start_utime;
+                
+                //fprintf (stdout, "    utime = %"PRId64", usec_since_first  = %"PRId64" i_s = %d, i_d = %d, offset = %"PRId64"\n", utime, usec_since_first, i_s, i_d, offset_usec);
+
                 double ctheta_yaw_cmp = ctheta + (VELODYNE_SPIN_RATE * usec_since_first);
+
+                //fprintf (stdout, "    ctheta = %.2f, ctheta_intermediate = %.2f, ctheta_yaw_cmp = %.2f, laser_offset = %d\n",
+                //         ctheta * 180/M_PI, ctheta_intermediate * 180/M_PI, ctheta_yaw_cmp * 180/M_PI, laser_offset);
 
                 lr->physical = laser_offset + i_l;
                 lr->logical  = velodyne_physical_to_logical (calib, lr->physical);
@@ -632,7 +660,10 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
                 velodyne_laser_calib_t *params = &calib->lasers[lr->physical];
                 lr->raw_range = VELODYNE_GET_RANGE(data, VELODYNE_DATA_LASER_START(i_f, i_l));
                 lr->range     = lr->raw_range;
-                lr->ctheta    = ctheta;
+                if (i_l > 15)
+                    lr->ctheta    = ctheta_intermediate;
+                else
+                    lr->ctheta    = ctheta;
                 lr->theta     = ctheta_yaw_cmp;
                 lr->phi       = params->vcf;
                 lr->intensity = VELODYNE_GET_INTENSITY(data, VELODYNE_DATA_LASER_START(i_f, i_l));

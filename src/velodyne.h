@@ -30,8 +30,9 @@
 #define VELODYNE_SPIN_RATE       (10*360/1e6*(M_PI/180)) //10 Hz = 3600/1e6*DTOR rads/usec
 #define VELODYNE_INTRA_SHOT_USEC (4) //4 microseconds
 #define VELODYNE_RADS_PER_PACKET 0.0278
-#define VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS 0.01 // The magnitude of the difference between the ctheta reported
-                                                     // for sequential firings should not exceed this threshold.
+#define VELODYNE_MAX_DELTA_RADS_BETWEEN_FIRINGS 0.012  // The magnitude of the difference between the ctheta reported
+                                                       // for sequential firings should not exceed this threshold.
+                                                       // Increased from 0.01 for VLP-16
 
 #define VELODYNE_POSITION_PORT          8308    //!< UDP port for data packet
 #define VELODYNE_DATA_PORT              2368    //!< UDP port for position packet
@@ -92,8 +93,10 @@
  *
  * see velodyne 32 manual pg 24
  */
-#define VELODYNE_32_LASER_FIRING_TIME_OFFSET(if, il) (-542.592 + (i_f*46.08) + (i_l*1.152))
-#define VELODYNE_16_LASER_FIRING_TIME_OFFSET(if, il) ((i_f*55.296) + (i_l*2.304))
+#define VELODYNE_32_LASER_FIRING_TIME_OFFSET(i_f, i_l) (-542.592 + (i_f*46.08) + (i_l*1.152))
+// See VLP-16 Appendix A (page 26) 
+// i_s denotes the sequence number (0-23) and i_d denotes the datapoint number (0-15)
+#define VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_s, i_d) ((i_s*55.296) + (i_d*2.304))
 
 #ifdef __cplusplus
 extern "C" {
