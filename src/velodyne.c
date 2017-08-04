@@ -460,7 +460,7 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
         // Used for VLP_16, which does not report azimuth for second set of 16 returns
         double ctheta_intermediate;
         if (have_ctheta_prev)
-            ctheta_intermediate = ctheta + this_delta/2;
+            ctheta_intermediate = bot_mod2pi(ctheta + this_delta/2);
         else
             ctheta_intermediate = ctheta;
 
@@ -628,9 +628,6 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
             }
             else if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16) {
 
-                // according to velodyne the 32E shouldn't need any calibration
-                // beyond the vertical correction, so curently no other corrections
-                // are applied
                 // The time offset is based on sequences, of which there are two per frame
                 int i_s = 2 * i_f;
                 int i_d = i_l;
@@ -639,7 +636,7 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
                     i_d -= 16;
                 }
                 
-                int64_t offset_usec = (int64_t) VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_s, i_l);
+                int64_t offset_usec = (int64_t) VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_s, i_d);
 
                 lr->utime = utime + offset_usec;
 
@@ -969,8 +966,8 @@ velodyne_collector_push_laser_returns (velodyne_laser_return_collector_t *collec
             // check if we have collected a whole scan
             double theta = new_returns->laser_returns[new_returns->num_lr-1].theta;
 
-            double theta_max = new_returns->laser_returns[new_returns->num_lr-1].theta +
-                VELODYNE_RADS_PER_PACKET;
+            //double theta_max = new_returns->laser_returns[new_returns->num_lr-1].theta +
+            //    VELODYNE_RADS_PER_PACKET;
 
             double theta_delta = bot_mod2pi_ref (M_PI, theta - collector->prev_angle);
             collector->fov_angle += theta_delta;
