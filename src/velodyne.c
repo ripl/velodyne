@@ -334,7 +334,7 @@ velodyne_decode_data_packet_old(velodyne_calib_t* calib, const uint8_t *data,
             }
             else if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16) {
 
-                // according to velodyne the 32E shouldn't need any calibration
+                // according to velodyne the VLP-16 shouldn't need any calibration
                 // beyond the vertical correction, so curently no other corrections
                 // are applied
 
@@ -627,6 +627,11 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
                 lr->xyz[2] = lr->range * sin_phi;
             }
             else if (calib->sensor_type == VELODYNE_SENSOR_TYPE_VLP_16) {
+
+                // according to velodyne the VLP-16 shouldn't need any calibration
+                // beyond the vertical correction, so curently no other corrections
+                // are applied
+
 
                 // The time offset is based on sequences, of which there are two per frame
                 int i_s = 2 * i_f;
