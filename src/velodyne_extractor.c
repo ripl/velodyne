@@ -637,21 +637,21 @@ process_velodyne (const senlcm_velodyne_t *v, velodyne_extractor_state_t *self)
 
         // find sensor pose in local/world frame
 
-        BotTrans senlcm_velodyne_to_local;
-        bot_frames_get_trans_with_utime (self->frames, "VELODYNE", "local", v->utime, &senlcm_velodyne_to_local);
+        BotTrans velodyne_to_local;
+        bot_frames_get_trans_with_utime (self->frames, "VELODYNE", "local", v->utime, &velodyne_to_local);
 
-        memcpy (state.xyz, senlcm_velodyne_to_local.trans_vec, 3*sizeof(double));
-        bot_quat_to_roll_pitch_yaw (senlcm_velodyne_to_local.rot_quat, state.rph);
+        memcpy (state.xyz, velodyne_to_local.trans_vec, 3*sizeof(double));
+        bot_quat_to_roll_pitch_yaw (velodyne_to_local.rot_quat, state.rph);
 
         // Compute translational velocity
         //
         // v_velodyne = v_bot + r x w
-        BotTrans senlcm_velodyne_to_body;
-        bot_frames_get_trans (self->frames, "VELODYNE", "body", &senlcm_velodyne_to_body);
+        BotTrans velodyne_to_body;
+        bot_frames_get_trans (self->frames, "VELODYNE", "body", &velodyne_to_body);
 
         double v_velodyne[3];
         double r_body_to_velodyne_local[3];
-        bot_quat_rotate_to (self->bot_pose_last->orientation, senlcm_velodyne_to_body.trans_vec, r_body_to_velodyne_local);
+        bot_quat_rotate_to (self->bot_pose_last->orientation, velodyne_to_body.trans_vec, r_body_to_velodyne_local);
 
         // r x w
         double vel_rot[3];

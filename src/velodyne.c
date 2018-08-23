@@ -198,7 +198,7 @@ velodyne_decode_data_packet_old(velodyne_calib_t* calib, const uint8_t *data,
         double sin_ctheta, cos_ctheta;
         bot_fasttrig_sincos (ctheta, &sin_ctheta, &cos_ctheta);
 
-        
+
         int64_t fire_start_utime = utime;
         if (calib->sensor_type == VELODYNE_SENSOR_TYPE_HDL_32E)
             fire_start_utime += VELODYNE_32_LASER_FIRING_TIME_OFFSET(i_f, 0);
@@ -640,7 +640,7 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
                     i_s += 1;
                     i_d -= 16;
                 }
-                
+
                 int64_t offset_usec = (int64_t) VELODYNE_16_LASER_FIRING_TIME_OFFSET(i_s, i_d);
 
                 lr->utime = utime + offset_usec;
@@ -648,7 +648,7 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
                 // compensate for intershot yaw change
                 // at 100m this can be up to 1/4 of a meter of correction
                 int64_t usec_since_first = lr->utime - fire_start_utime;
-                
+
                 //fprintf (stdout, "    utime = %"PRId64", usec_since_first  = %"PRId64" i_s = %d, i_d = %d, offset = %"PRId64"\n", utime, usec_since_first, i_s, i_d, offset_usec);
 
                 double ctheta_yaw_cmp = ctheta + (VELODYNE_SPIN_RATE * usec_since_first);
@@ -669,6 +669,7 @@ velodyne_decode_data_packet(velodyne_calib_t* calib, const uint8_t *data,
                 lr->theta     = ctheta_yaw_cmp;
                 lr->phi       = params->vcf;
                 lr->intensity = VELODYNE_GET_INTENSITY(data, VELODYNE_DATA_LASER_START(i_f, i_l));
+
 
                 /*int order_id = 0;
 
@@ -1108,7 +1109,7 @@ parse_current_item(xmlDocPtr doc, xmlNodePtr cur, velodyne_calib_t* calib, int i
         if ((!xmlStrcmp(cur->name, (const xmlChar *)"vertCorrection_"))) {
             key = xmlNodeListGetString(doc, cur->xmlChildrenNode, 1);
             calib->lasers[index].vcf = atof((char*)key)*M_PI/180;
-            //printf("vertCorrection: %f\n", calib->lasers[index].vcf);
+            // printf("vertCorrection: %f\n", calib->lasers[index].vcf);
             xmlFree(key);
         }
         if ((!xmlStrcmp(cur->name, (const xmlChar *)"distCorrection_"))) {
