@@ -581,7 +581,7 @@ xyz_point_list_t *velodyne_extract_points_frame_compensation(velodyne_extractor_
 
 
 static int
-process_velodyne (const senlcm_velodyne_t *v, velodyne_extractor_state_t *self)
+process_velodyne (const velodyne_t *v, velodyne_extractor_state_t *self)
 {
     g_assert(self);
 
@@ -688,7 +688,7 @@ on_bot_pose (const lcm_recv_buf_t *buf, const char *channel,
 
 static void
 on_velodyne_list (const lcm_recv_buf_t *rbuf, const char *channel,
-		  const senlcm_velodyne_list_t *msg, void *user)
+		  const velodyne_list_t *msg, void *user)
 {
     velodyne_extractor_state_t *self = (velodyne_extractor_state_t *)user;
 
@@ -760,7 +760,7 @@ velodyne_extractor_state_t * velodyne_extractor_init_full(lcm_t *lcm, uint8_t wh
     state->mutex = g_mutex_new ();
     state->mutex_lrc = g_mutex_new ();
 
-    senlcm_velodyne_list_t_subscribe (state->lcm, lcm_channel_list, on_velodyne_list, state);
+    velodyne_list_t_subscribe (state->lcm, lcm_channel_list, on_velodyne_list, state);
 
     // Subscribe to the POSE message
     bot_core_pose_t_subscribe (state->lcm, "POSE", on_bot_pose, state);

@@ -5,8 +5,8 @@
 #include <bot_core/bot_core.h>
 #include <bot_frames/bot_frames.h>
 #include <bot_param/param_client.h>
-#include <lcmtypes/senlcm_velodyne_t.h>
-#include <lcmtypes/senlcm_velodyne_list_t.h>
+#include <lcmtypes/velodyne_t.h>
+#include <lcmtypes/velodyne_list_t.h>
 #include <point_types/point_types.h>
 
 #ifdef __cplusplus

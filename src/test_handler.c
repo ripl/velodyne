@@ -9,8 +9,8 @@
 #include <hr_common/path_util.h>
 #include <lcmtypes/bot_param_update_t.h>
 
-#include "lcmtypes/senlcm_velodyne_t.h"
-#include "lcmtypes/senlcm_velodyne_list_t.h"
+#include "lcmtypes/velodyne_t.h"
+#include "lcmtypes/velodyne_list_t.h"
 
 #define GAMMA 0.1
 #define PUBLISH_HZ 50
@@ -99,12 +99,12 @@ int rate_update(rate_t* rate)
 
 static void
 on_velodyne(const lcm_recv_buf_t *rbuf, const char * channel,
-	    const senlcm_velodyne_t * msg, void * user)
+	    const velodyne_t * msg, void * user)
 {
     state_t *self = (state_t *)user;
     g_assert(self);
 
-    g_async_queue_push (self->velodyne_message_queue, senlcm_velodyne_t_copy (msg));
+    g_async_queue_push (self->velodyne_message_queue, velodyne_t_copy (msg));
 
     return;
 
@@ -166,19 +166,19 @@ on_velodyne(const lcm_recv_buf_t *rbuf, const char * channel,
 
 static void
 on_velodyne_debug(const lcm_recv_buf_t *rbuf, const char * channel,
-                  const senlcm_velodyne_list_t * msgl, void * user)
+                  const velodyne_list_t * msgl, void * user)
 {
     state_t *self = (state_t *)user;
     g_assert(self);
 
-    senlcm_velodyne_t *msg;
+    velodyne_t *msg;
 
     int64_t now = bot_timestamp_now();
 
     for (int i=0; i < msgl->num_packets; i++)
-        g_async_queue_push (self->velodyne_message_queue, senlcm_velodyne_t_copy (& (msgl->packets[i])));
+        g_async_queue_push (self->velodyne_message_queue, velodyne_t_copy (& (msgl->packets[i])));
 
-    //g_async_queue_push (self->velodyne_message_queue, senlcm_velodyne_t_copy (msg));
+    //g_async_queue_push (self->velodyne_message_queue, velodyne_t_copy (msg));
     return;
 
     //we are missing data packets
@@ -248,7 +248,7 @@ on_velodyne_debug(const lcm_recv_buf_t *rbuf, const char * channel,
 }
 
 static void
-process_velodyne (state_t *self, const senlcm_velodyne_t *v)
+process_velodyne (state_t *self, const velodyne_t *v)
 {
 
     //we are missing data packets
@@ -346,9 +346,9 @@ velodyne_work_thread (void *user)
 	    if (msg == &(self->velodyne_work_thread_exit))
 		continue;
 
-	    senlcm_velodyne_t *v = (senlcm_velodyne_t *) msg;
+	    velodyne_t *v = (velodyne_t *) msg;
 
-            senlcm_velodyne_t_destroy(v);
+            velodyne_t_destroy(v);
 
             int64_t now = bot_timestamp_now();
             dropped_packets++;
@@ -371,12 +371,12 @@ velodyne_work_thread (void *user)
 	g_mutex_unlock (self->mutex);
 
 	// Don't exit. Keep going
-        senlcm_velodyne_t *v = (senlcm_velodyne_t *) msg;
+        velodyne_t *v = (velodyne_t *) msg;
 
 	self->last_msg_count = v->utime;
 
 	process_velodyne(self, v);
-	senlcm_velodyne_t_destroy(v);
+	velodyne_t_destroy(v);
     }
 
     return NULL;
@@ -433,8 +433,8 @@ main(int argc, char ** argv)
     self->velodyne_work_thread_exit = 0;
     self->mutex = g_mutex_new();
 
-    //senlcm_velodyne_t_subscribe (self->lcm, lcm_channel, on_velodyne, self);
-    senlcm_velodyne_list_t_subscribe (self->lcm, "VELODYNE_LIST", on_velodyne_debug, self);
+    //velodyne_t_subscribe (self->lcm, lcm_channel, on_velodyne, self);
+    velodyne_list_t_subscribe (self->lcm, "VELODYNE_LIST", on_velodyne_debug, self);
 
     self->capture_rate = rate_new();
 
@@ -465,13 +465,13 @@ main(int argc, char ** argv)
     bot_glib_mainloop_detach_lcm (self->lcm);
 
     int num_freed = 0;
-    for (senlcm_velodyne_t *msg = g_async_queue_try_pop (self->velodyne_message_queue);
+    for (velodyne_t *msg = g_async_queue_try_pop (self->velodyne_message_queue);
 	 msg; msg = g_async_queue_try_pop (self->velodyne_message_queue)) {
 
 	if (msg == &(self->velodyne_work_thread_exit))
 	    continue;
 
-	senlcm_velodyne_t_destroy(msg);
+	velodyne_t_destroy(msg);
 	num_freed++;
     }
 
