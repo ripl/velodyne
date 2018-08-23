@@ -130,7 +130,7 @@ main(int argc, char **argv)
     state->velodyne = velodyne_extractor_init(state->lcm, &velodyne_update_handler, state);
     state->b_server = bot_param_new_from_server(state->lcm, 1);
     state->frames = bot_frames_get_global (state->lcm, state->b_server);
-    state->lcmgl = bot_lcmgl_init(state->lcm,"velodyne_test");
+    state->lcmgl = bot_lcmgl_init(state->lcm,"senlcm_velodyne_test");
 
     state->mainloop = g_main_loop_new( NULL, FALSE );  
   

@@ -10,8 +10,8 @@
 #include <path_util/path_util.h>
 #include <lcmtypes/bot_param_update_t.h>
 
-#include "lcmtypes/velodyne_t.h"
-#include "lcmtypes/velodyne_list_t.h"
+#include "lcmtypes/senlcm_velodyne_t.h"
+#include "lcmtypes/senlcm_velodyne_list_t.h"
 
 
 int main (int argc, char **argv)
@@ -42,16 +42,16 @@ int main (int argc, char **argv)
         if (strcmp ("VELODYNE_LIST", event->channel) == 0) {
 
             int counter = 0;
-            velodyne_list_t vlist;
-            memset (&vlist, 0, sizeof (velodyne_list_t));
-            decode_status = velodyne_list_t_decode (event->data, 0, event->datalen, &vlist);
+            senlcm_velodyne_list_t vlist;
+            memset (&vlist, 0, sizeof (senlcm_velodyne_list_t));
+            decode_status = senlcm_velodyne_list_t_decode (event->data, 0, event->datalen, &vlist);
 
             if (decode_status < 0)
                 fprintf (stderr, "Error %d decoding message\n", decode_status);
             else {
 
                 for (int i=0; i <vlist.num_packets; i++) {
-                    velodyne_t v = vlist.packets[i];
+                    senlcm_velodyne_t v = vlist.packets[i];
              
                     if (v.packet_type == SENLCM_VELODYNE_T_TYPE_DATA_PACKET) {
                         assert (v.data_len == VELODYNE_DATA_PACKET_LEN);
@@ -97,13 +97,13 @@ int main (int argc, char **argv)
                 }
             }
                          
-            velodyne_list_t_decode_cleanup (&vlist);
+            senlcm_velodyne_list_t_decode_cleanup (&vlist);
         }
         else if (strcmp ("VELODYNE", event->channel) == 0) {
 
-            velodyne_t v;
-            memset (&v, 0, sizeof (velodyne_t));
-            decode_status = velodyne_t_decode (event->data, 0, event->datalen, &v);
+            senlcm_velodyne_t v;
+            memset (&v, 0, sizeof (senlcm_velodyne_t));
+            decode_status = senlcm_velodyne_t_decode (event->data, 0, event->datalen, &v);
 
             if (decode_status < 0)
                 fprintf (stderr, "Error %d decoding message\n", decode_status);
@@ -131,7 +131,7 @@ int main (int argc, char **argv)
                 }
             }
                          
-            velodyne_t_decode_cleanup (&v);
+            senlcm_velodyne_t_decode_cleanup (&v);
         }
         lcm_eventlog_free_event (event);
     }
