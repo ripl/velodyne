@@ -5,7 +5,7 @@
 
 #include <gsl/gsl_blas.h>
 
-#include <hr_common/path_util.h>
+#include <path_utils/path_util.h>
 
 #include "velodyne_extractor.h"
 

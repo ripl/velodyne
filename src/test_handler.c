@@ -6,7 +6,7 @@
 #include <bot_core/bot_core.h>
 #include <bot_param/param_client.h>
 #include <velodyne/velodyne.h>
-#include <hr_common/path_util.h>
+#include <path_utils/path_util.h>
 #include <lcmtypes/bot_param_update_t.h>
 
 #include "lcmtypes/senlcm_velodyne_t.h"
