@@ -54,7 +54,7 @@ target_link_libraries (velodyne-receiver
 pods_use_pkg_config_packages (velodyne-receiver
     bot2-core
     bot2-param-client
-    hr-path-util
+    path-utils
     velodyne)
 
 pods_install_executables (velodyne-receiver)
@@ -90,7 +90,7 @@ set (REQUIRED_LIBS
     lcmtypes_velodyne
     bot2-frames
     bot2-param-client
-    hr-path-util
+    path-utils
     gsl)
 
 pods_install_libraries(velodyne_extractor)
