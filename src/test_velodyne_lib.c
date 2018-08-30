@@ -13,7 +13,7 @@
 #include <bot_lcmgl_client/lcmgl.h>
 #include <GL/gl.h>
 
-//#include <lcmtypes/erlcm_xyz_point_list_t.h>
+//#include <lcmtypes/ripl_xyz_point_list_t.h>
 
 typedef struct _state_t state_t;
 
@@ -91,11 +91,11 @@ gboolean heartbeat_cb (gpointer data)
         bot_lcmgl_end(s->lcmgl);
         bot_lcmgl_switch_buffer(s->lcmgl);
 
-        /*erlcm_xyz_point_list_t msg;
+        /*ripl_xyz_point_list_t msg;
         msg.utime = bot_timestamp_now(); 
         msg.no_points = ret->no_points;
     
-        msg.points = (erlcm_xyz_point_t *)calloc(msg.no_points, sizeof(erlcm_xyz_point_t));
+        msg.points = (ripl_xyz_point_t *)calloc(msg.no_points, sizeof(ripl_xyz_point_t));
 
         for (size_t k = 0; k < ret->no_points; ++k){
             msg.points[k].xyz[0] = ret->points[k].xyz[0];//cloud_p->points[k].x; 
@@ -104,7 +104,7 @@ gboolean heartbeat_cb (gpointer data)
         }
 
         //publish
-        erlcm_xyz_point_list_t_publish(s->lcm, "PCL_XYZ_LIST", &msg);
+        ripl_xyz_point_list_t_publish(s->lcm, "PCL_XYZ_LIST", &msg);
         free(msg.points);    */
 
         /*for(int i=0; i < ret->no_points ; i+=1000){
