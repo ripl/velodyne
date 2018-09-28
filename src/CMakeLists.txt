@@ -1,6 +1,5 @@
 # Create a shared library libhello.so with a single source file
 add_definitions(
-  #-ggdb3
     -std=gnu99
     )
 
@@ -9,6 +8,7 @@ add_library (velodyne SHARED velodyne.c)
 
 set (REQUIRED_LIBS
     bot2-core
+    lcmtypes_velodyne
     libxml-2.0
     point_types
     gsl)
@@ -47,9 +47,6 @@ pods_install_executables (velodyne-lcm)
 
 # Velodyne Receiver test
 add_executable(velodyne-receiver test_handler.c)
-
-target_link_libraries (velodyne-receiver
-    ${LCMTYPES_LIBS})
 
 pods_use_pkg_config_packages (velodyne-receiver
     bot2-core
