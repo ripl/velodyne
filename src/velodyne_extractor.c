@@ -581,14 +581,14 @@ xyz_point_list_t *velodyne_extract_points_frame_compensation(velodyne_extractor_
 
 
 static int
-process_velodyne (const velodyne_t *v, velodyne_extractor_state_t *self)
+process_velodyne (const velodyne_packet_t *v, velodyne_extractor_state_t *self)
 {
     g_assert(self);
 
     int do_push_motion = 0; // only push motion data if we are starting a new collection or there is a new pose
 
     // Is this a scan packet?
-    if (v->packet_type == SENLCM_VELODYNE_T_TYPE_DATA_PACKET) {
+    if (v->packet_type == VELODYNE_PACKET_T_TYPE_DATA_PACKET) {
 
         velodyne_laser_return_collection_t *lrc =
             velodyne_decode_data_packet(self->calib, v->data, v->datalen, v->utime);
@@ -637,21 +637,21 @@ process_velodyne (const velodyne_t *v, velodyne_extractor_state_t *self)
 
         // find sensor pose in local/world frame
 
-        BotTrans velodyne_to_local;
-        bot_frames_get_trans_with_utime (self->frames, "VELODYNE", "local", v->utime, &velodyne_to_local);
+        BotTrans velodyne_packet_to_local;
+        bot_frames_get_trans_with_utime (self->frames, "VELODYNE", "local", v->utime, &velodyne_packet_to_local);
 
-        memcpy (state.xyz, velodyne_to_local.trans_vec, 3*sizeof(double));
-        bot_quat_to_roll_pitch_yaw (velodyne_to_local.rot_quat, state.rph);
+        memcpy (state.xyz, velodyne_packet_to_local.trans_vec, 3*sizeof(double));
+        bot_quat_to_roll_pitch_yaw (velodyne_packet_to_local.rot_quat, state.rph);
 
         // Compute translational velocity
         //
         // v_velodyne = v_bot + r x w
-        BotTrans velodyne_to_body;
-        bot_frames_get_trans (self->frames, "VELODYNE", "body", &velodyne_to_body);
+        BotTrans velodyne_packet_to_body;
+        bot_frames_get_trans (self->frames, "VELODYNE", "body", &velodyne_packet_to_body);
 
         double v_velodyne[3];
         double r_body_to_velodyne_local[3];
-        bot_quat_rotate_to (self->bot_pose_last->orientation, velodyne_to_body.trans_vec, r_body_to_velodyne_local);
+        bot_quat_rotate_to (self->bot_pose_last->orientation, velodyne_packet_to_body.trans_vec, r_body_to_velodyne_local);
 
         // r x w
         double vel_rot[3];
@@ -687,8 +687,8 @@ on_bot_pose (const lcm_recv_buf_t *buf, const char *channel,
 
 
 static void
-on_velodyne_list (const lcm_recv_buf_t *rbuf, const char *channel,
-		  const velodyne_list_t *msg, void *user)
+on_velodyne_packet_list (const lcm_recv_buf_t *rbuf, const char *channel,
+		  const velodyne_packet_list_t *msg, void *user)
 {
     velodyne_extractor_state_t *self = (velodyne_extractor_state_t *)user;
 
@@ -760,7 +760,7 @@ velodyne_extractor_state_t * velodyne_extractor_init_full(lcm_t *lcm, uint8_t wh
     state->mutex = g_mutex_new ();
     state->mutex_lrc = g_mutex_new ();
 
-    velodyne_list_t_subscribe (state->lcm, lcm_channel_list, on_velodyne_list, state);
+    velodyne_packet_list_t_subscribe (state->lcm, lcm_channel_list, on_velodyne_packet_list, state);
 
     // Subscribe to the POSE message
     bot_core_pose_t_subscribe (state->lcm, "POSE", on_bot_pose, state);

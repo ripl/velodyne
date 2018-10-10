@@ -10,8 +10,8 @@
 #include <path_utils/path_util.h>
 #include <lcmtypes/bot_param_update_t.h>
 
-#include "lcmtypes/velodyne_t.h"
-#include "lcmtypes/velodyne_list_t.h"
+#include "lcmtypes/velodyne_packet_t.h"
+#include "lcmtypes/velodyne_packet_list_t.h"
 
 
 int main (int argc, char **argv)
@@ -42,18 +42,18 @@ int main (int argc, char **argv)
         if (strcmp ("VELODYNE_LIST", event->channel) == 0) {
 
             int counter = 0;
-            velodyne_list_t vlist;
-            memset (&vlist, 0, sizeof (velodyne_list_t));
-            decode_status = velodyne_list_t_decode (event->data, 0, event->datalen, &vlist);
+            velodyne_packet_list_t vlist;
+            memset (&vlist, 0, sizeof (velodyne_packet_list_t));
+            decode_status = velodyne_packet_list_t_decode (event->data, 0, event->datalen, &vlist);
 
             if (decode_status < 0)
                 fprintf (stderr, "Error %d decoding message\n", decode_status);
             else {
 
                 for (int i=0; i <vlist.num_packets; i++) {
-                    velodyne_t v = vlist.packets[i];
+                    velodyne_packet_t v = vlist.packets[i];
              
-                    if (v.packet_type == SENLCM_VELODYNE_T_TYPE_DATA_PACKET) {
+                    if (v.packet_type == VELODYNE_PACKET_T_TYPE_DATA_PACKET) {
                         assert (v.data_len == VELODYNE_DATA_PACKET_LEN);
 
                         for (int i_f = 0; i_f < VELODYNE_NUM_FIRING_PER_PACKET; i_f++) {
@@ -97,18 +97,18 @@ int main (int argc, char **argv)
                 }
             }
                          
-            velodyne_list_t_decode_cleanup (&vlist);
+            velodyne_packet_list_t_decode_cleanup (&vlist);
         }
         else if (strcmp ("VELODYNE", event->channel) == 0) {
 
-            velodyne_t v;
-            memset (&v, 0, sizeof (velodyne_t));
+            velodyne_packet_t v;
+            memset (&v, 0, sizeof (velodyne_packet_t));
             decode_status = velodyne_t_decode (event->data, 0, event->datalen, &v);
 
             if (decode_status < 0)
                 fprintf (stderr, "Error %d decoding message\n", decode_status);
             else {
-                if (v.packet_type == SENLCM_VELODYNE_T_TYPE_DATA_PACKET) {
+                if (v.packet_type == VELODYNE_PACKET_T_TYPE_DATA_PACKET) {
                     assert (data_len == VELODYNE_DATA_PACKET_LEN);
 
                     for (int i_f = 0; i_f < VELODYNE_NUM_FIRING_PER_PACKET; i_f++) {

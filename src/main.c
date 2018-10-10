@@ -17,8 +17,8 @@
 #include <bot_param/param_client.h>
 #include <velodyne/velodyne.h>
 
-#include "lcmtypes/velodyne_t.h"
-#include "lcmtypes/velodyne_list_t.h"
+#include "lcmtypes/velodyne_packet_t.h"
+#include "lcmtypes/velodyne_packet_list_t.h"
 #include "lcmtypes/bot_core_sensor_status_t.h"
 
 #define UDP_MAX_LEN 1600
@@ -209,7 +209,7 @@ velodyne_read_thread (void *user)
                     continue;
                 }
 
-                packet_type = SENLCM_VELODYNE_T_TYPE_DATA_PACKET;
+                packet_type = VELODYNE_PACKET_T_TYPE_DATA_PACKET;
                 data_packet_count++;
             } else if (FD_ISSET(position_fd, &set)){
                 len = recvfrom(position_fd, (void*)buf, UDP_MAX_LEN, 0,
@@ -218,7 +218,7 @@ velodyne_read_thread (void *user)
                     fprintf (stderr, "\nERROR: Bad position packet len, expected %d, got %d", VELODYNE_POSITION_PACKET_LEN, (int) len);
                     continue;
                 }
-                packet_type = SENLCM_VELODYNE_T_TYPE_POSITION_PACKET;
+                packet_type = VELODYNE_PACKET_T_TYPE_POSITION_PACKET;
                 position_packet_count++;
             } else {
                 fprintf (stderr,"ERROR: What?");
@@ -227,16 +227,16 @@ velodyne_read_thread (void *user)
             // pull the usec since top of the hour and use for timestamp sync
             // timestamp data is 4 bytes in reverse order
             uint32_t cycle_usec;
-            if (packet_type == SENLCM_VELODYNE_T_TYPE_DATA_PACKET){
+            if (packet_type == VELODYNE_PACKET_T_TYPE_DATA_PACKET){
                 cycle_usec = VELODYNE_GET_TIMESTAMP_USEC(buf);
-            } else if (packet_type == SENLCM_VELODYNE_T_TYPE_POSITION_PACKET){
+            } else if (packet_type == VELODYNE_PACKET_T_TYPE_POSITION_PACKET){
                 cycle_usec = VELODYNE_GET_TIMESTAMP_USEC(buf);
             }
 
-            velodyne_t v;
-            if (packet_type == SENLCM_VELODYNE_T_TYPE_DATA_PACKET)
+            velodyne_packet_t v;
+            if (packet_type == VELODYNE_PACKET_T_TYPE_DATA_PACKET)
                 v.utime = bot_timestamp_sync (self->tss_data, cycle_usec, bot_timestamp_now());
-            else if (packet_type == SENLCM_VELODYNE_T_TYPE_POSITION_PACKET)
+            else if (packet_type == VELODYNE_PACKET_T_TYPE_POSITION_PACKET)
                 v.utime = bot_timestamp_sync (self->tss_position, cycle_usec, bot_timestamp_now());
             v.packet_type = packet_type;
             v.datalen = len;
@@ -280,7 +280,7 @@ lcm_publish_thread (void *user)
 
 
             // Not exiting. Keep going
-            velodyne_t *v = (velodyne_t *) msg;
+            velodyne_packet_t *v = (velodyne_packet_t *) msg;
 
             velodyne_t_destroy (v);
 
@@ -297,8 +297,8 @@ lcm_publish_thread (void *user)
 
         if ( ((now - self->last_publish_utime) > 1E6/PUBLISH_HZ) && (g_async_queue_length (self->packet_queue) > 0) ) {
 
-            velodyne_list_t *vlist = (velodyne_list_t *)
-                calloc (1, sizeof (velodyne_list_t));
+            velodyne_packet_list_t *vlist = (velodyne_packet_list_t *)
+                calloc (1, sizeof (velodyne_packet_list_t));
             vlist->utime = now;
             vlist->num_packets = 0;
             vlist->packets = NULL;
@@ -314,21 +314,21 @@ lcm_publish_thread (void *user)
                     if (self->lcm_publish_thread_exit_flag) {
                         g_mutex_unlock (self->lcm_publish_thread_exit_mutex);
                         //free (vlist.packets);
-                        velodyne_list_t_destroy (vlist);
+                        velodyne_packet_list_t_destroy (vlist);
                         g_thread_exit (NULL);
                     }
                     g_mutex_unlock (self->lcm_publish_thread_exit_mutex);
                 }
 
                 // Not exiting. Keep going
-                velodyne_t *vmsg = (velodyne_t *) msg;
+                velodyne_packet_t *vmsg = (velodyne_packet_t *) msg;
 
                 // Realloate memory for the new message
-                vlist->packets = (velodyne_t *)
+                vlist->packets = (velodyne_packet_t *)
                     realloc (vlist->packets, (vlist->num_packets + 1)
-                             * sizeof (velodyne_t));
+                             * sizeof (velodyne_packet_t));
 
-                velodyne_t *v = vlist->packets + vlist->num_packets;
+                velodyne_packet_t *v = vlist->packets + vlist->num_packets;
                 v->utime = vmsg->utime;
                 v->packet_type = vmsg->packet_type;
                 v->datalen = vmsg->datalen;
@@ -348,10 +348,10 @@ lcm_publish_thread (void *user)
             self->num_packets_since_last_status += vlist->num_packets;
 
             self->last_publish_utime = now;
-            velodyne_list_t_publish (self->lcm, "VELODYNE_LIST", vlist);
+            velodyne_packet_list_t_publish (self->lcm, "VELODYNE_LIST", vlist);
 
             // Free the allocated packets
-            velodyne_list_t_destroy (vlist);
+            velodyne_packet_list_t_destroy (vlist);
         }
 
         //int64_t status_now = bot_timestamp_now ();
@@ -556,7 +556,7 @@ int main(int argc, char *argv[])
 
 
     num_freed = 0;
-    for (velodyne_t *msg = g_async_queue_try_pop (self->packet_queue);
+    for (velodyne_packet_t *msg = g_async_queue_try_pop (self->packet_queue);
          msg; msg = g_async_queue_try_pop (self->packet_queue)) {
 
         if (msg == &(self->lcm_publish_thread_exit_flag))
