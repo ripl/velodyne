@@ -243,8 +243,8 @@ velodyne_read_thread (void *user)
             v.data = buf;
 
             // Push the message onto the queue for the LCM publish thread
-            g_async_queue_push (self->packet_queue, velodyne_t_copy (&v));
-            //velodyne_t_publish(self->lcm, self->lcm_chan, &v);
+            g_async_queue_push (self->packet_queue, velodyne_packet_t_copy (&v));
+            //velodyne_packet_t_publish(self->lcm, self->lcm_chan, &v);
 
         }
     }
@@ -282,7 +282,7 @@ lcm_publish_thread (void *user)
             // Not exiting. Keep going
             velodyne_packet_t *v = (velodyne_packet_t *) msg;
 
-            velodyne_t_destroy (v);
+            velodyne_packet_t_destroy (v);
 
             int64_t now = bot_timestamp_now();
             dropped_packets++;
@@ -339,7 +339,7 @@ lcm_publish_thread (void *user)
                 vlist->num_packets++;
 
                 // Free up the message
-                velodyne_t_destroy (vmsg);
+                velodyne_packet_t_destroy (vmsg);
             }
 
             // Update the publish rate
@@ -562,7 +562,7 @@ int main(int argc, char *argv[])
         if (msg == &(self->lcm_publish_thread_exit_flag))
             continue;
 
-        velodyne_t_destroy(msg);
+        velodyne_packet_t_destroy(msg);
         num_freed++;
     }
 

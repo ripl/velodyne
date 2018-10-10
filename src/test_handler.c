@@ -104,7 +104,7 @@ on_velodyne(const lcm_recv_buf_t *rbuf, const char * channel,
     state_t *self = (state_t *)user;
     g_assert(self);
 
-    g_async_queue_push (self->velodyne_message_queue, velodyne_t_copy (msg));
+    g_async_queue_push (self->velodyne_message_queue, velodyne_packet_t_copy (msg));
 
     return;
 
@@ -176,9 +176,9 @@ on_velodyne_debug(const lcm_recv_buf_t *rbuf, const char * channel,
     int64_t now = bot_timestamp_now();
 
     for (int i=0; i < msgl->num_packets; i++)
-        g_async_queue_push (self->velodyne_message_queue, velodyne_t_copy (& (msgl->packets[i])));
+        g_async_queue_push (self->velodyne_message_queue, velodyne_packet_t_copy (& (msgl->packets[i])));
 
-    //g_async_queue_push (self->velodyne_message_queue, velodyne_t_copy (msg));
+    //g_async_queue_push (self->velodyne_message_queue, velodyne_packet_t_copy (msg));
     return;
 
     //we are missing data packets
@@ -348,7 +348,7 @@ velodyne_work_thread (void *user)
 
 	    velodyne_packet_t *v = (velodyne_packet_t *) msg;
 
-            velodyne_t_destroy(v);
+            velodyne_packet_t_destroy(v);
 
             int64_t now = bot_timestamp_now();
             dropped_packets++;
@@ -376,7 +376,7 @@ velodyne_work_thread (void *user)
 	self->last_msg_count = v->utime;
 
 	process_velodyne(self, v);
-	velodyne_t_destroy(v);
+	velodyne_packet_t_destroy(v);
     }
 
     return NULL;
@@ -433,7 +433,7 @@ main(int argc, char ** argv)
     self->velodyne_work_thread_exit = 0;
     self->mutex = g_mutex_new();
 
-    //velodyne_t_subscribe (self->lcm, lcm_channel, on_velodyne, self);
+    //velodyne_packet_t_subscribe (self->lcm, lcm_channel, on_velodyne, self);
     velodyne_packet_list_t_subscribe (self->lcm, "VELODYNE_LIST", on_velodyne_debug, self);
 
     self->capture_rate = rate_new();
@@ -471,7 +471,7 @@ main(int argc, char ** argv)
 	if (msg == &(self->velodyne_work_thread_exit))
 	    continue;
 
-	velodyne_t_destroy(msg);
+	velodyne_packet_t_destroy(msg);
 	num_freed++;
     }
 
